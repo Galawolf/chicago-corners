@@ -50,10 +50,29 @@ const TREATMENTS = [
 ];
 
 const map = L.map("map").setView([41.85, -87.65], 11);
-L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+
+const streets = L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
   attribution: "&copy; OpenStreetMap",
   maxZoom: 19,
-}).addTo(map);
+});
+const satellite = L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}", {
+  attribution: "Tiles &copy; Esri — imagery for sketching only",
+  maxZoom: 19,
+});
+satellite.addTo(map);
+
+document.getElementById("basemapToggle").addEventListener("click", (e) => {
+  const btn = e.target.closest("button");
+  if (!btn) return;
+  document.querySelectorAll("#basemapToggle button").forEach((b) => b.classList.toggle("on", b === btn));
+  if (btn.dataset.base === "sat") {
+    map.removeLayer(streets);
+    if (!map.hasLayer(satellite)) satellite.addTo(map);
+  } else {
+    map.removeLayer(satellite);
+    if (!map.hasLayer(streets)) streets.addTo(map);
+  }
+});
 
 const panel = document.getElementById("detail");
 const sketch = L.layerGroup().addTo(map);
@@ -72,41 +91,90 @@ function clearSketch() {
   sketch.clearLayers();
 }
 
+function pt(lat, lng, e, n) {
+  return offsetMeters(lat, lng, e, n);
+}
+
+function zebra(lat, lng, alongE, alongN, acrossE, acrossN) {
+  for (let i = -4; i <= 4; i += 1) {
+    const a0 = i * 1.6;
+    const a1 = a0 + 0.8;
+    L.polyline(
+      [
+        pt(lat, lng, alongE * a0 + acrossE, alongN * a0 + acrossN),
+        pt(lat, lng, alongE * a1 + acrossE, alongN * a1 + acrossN),
+      ],
+      { color: "#f4f1ea", weight: 4, opacity: 0.9 }
+    ).addTo(sketch);
+  }
+}
+
+function bulbOut(lat, lng, signE, signN) {
+  const sidewalk = 12;
+  const nose = 4.5;
+  const ring = {
+    color: "#3a3530",
+    weight: 2,
+    fillColor: "#cfc6b4",
+    fillOpacity: 0.88,
+  };
+  return L.polygon(
+    [
+      pt(lat, lng, signE * sidewalk, signN * sidewalk),
+      pt(lat, lng, signE * nose, signN * sidewalk),
+      pt(lat, lng, signE * (nose - 1), signN * (sidewalk - 3)),
+      pt(lat, lng, signE * 5.5, signN * 5.5),
+      pt(lat, lng, signE * (sidewalk - 3), signN * (nose - 1)),
+      pt(lat, lng, signE * sidewalk, signN * nose),
+    ],
+    ring
+  ).addTo(sketch);
+}
+
 function drawSketch(lat, lng, id) {
   clearSketch();
-  const ink = "#1d4e89";
-  const paint = { color: ink, weight: 3, fillColor: "#4aa3df", fillOpacity: 0.35 };
 
   if (id === "roundabout") {
-    L.circle([lat, lng], { ...paint, radius: 18 }).addTo(sketch);
-    L.circle([lat, lng], { color: "#2e7d32", weight: 2, fillColor: "#7dba7f", fillOpacity: 0.5, radius: 6 }).addTo(sketch);
-    L.circle([lat, lng], { color: ink, weight: 1, fill: false, radius: 26, dashArray: "4 4" }).addTo(sketch);
+    L.circle([lat, lng], { color: "#d8d2c6", weight: 10, fill: false, radius: 16 }).addTo(sketch);
+    L.circle([lat, lng], { color: "#2f4a2f", weight: 1, fillColor: "#4d7a45", fillOpacity: 0.85, radius: 7 }).addTo(sketch);
+    L.circle([lat, lng], { color: "#f4f1ea", weight: 2, fill: false, radius: 21, dashArray: "6 8" }).addTo(sketch);
   } else if (id === "daylight") {
-    [[10, 10], [10, -10], [-10, 10], [-10, -10]].forEach(([e, n]) => {
-      L.circle(offsetMeters(lat, lng, e, n), { ...paint, radius: 5, fillColor: "#f4d35e" }).addTo(sketch);
+    [[9, 9], [9, -9], [-9, 9], [-9, -9]].forEach(([e, n]) => {
+      L.circle(pt(lat, lng, e, n), {
+        color: "#c9a227",
+        weight: 1,
+        fillColor: "#f4d35e",
+        fillOpacity: 0.45,
+        radius: 5,
+        dashArray: "3 4",
+      }).addTo(sketch);
     });
   } else if (id === "curb") {
-    [[8, 8], [8, -8], [-8, 8], [-8, -8]].forEach(([e, n]) => {
-      L.circle(offsetMeters(lat, lng, e, n), { ...paint, radius: 7 }).addTo(sketch);
-    });
+    bulbOut(lat, lng, 1, 1);
+    bulbOut(lat, lng, 1, -1);
+    bulbOut(lat, lng, -1, 1);
+    bulbOut(lat, lng, -1, -1);
+    zebra(lat, lng, 1, 0, 0, 6);
+    zebra(lat, lng, 0, 1, 6, 0);
+    zebra(lat, lng, 1, 0, 0, -6);
+    zebra(lat, lng, 0, 1, -6, 0);
   } else if (id === "lpi") {
-    const arms = [
-      [offsetMeters(lat, lng, -14, 3), offsetMeters(lat, lng, 14, 3)],
-      [offsetMeters(lat, lng, -14, -3), offsetMeters(lat, lng, 14, -3)],
-      [offsetMeters(lat, lng, 3, -14), offsetMeters(lat, lng, 3, 14)],
-      [offsetMeters(lat, lng, -3, -14), offsetMeters(lat, lng, -3, 14)],
-    ];
-    arms.forEach((line) => L.polyline(line, { color: "#c9a227", weight: 6, opacity: 0.85 }).addTo(sketch));
+    zebra(lat, lng, 1, 0, 0, 5);
+    zebra(lat, lng, 0, 1, 5, 0);
+    zebra(lat, lng, 1, 0, 0, -5);
+    zebra(lat, lng, 0, 1, -5, 0);
+    L.circleMarker([lat, lng], { radius: 4, color: "#2ecc71", fillColor: "#2ecc71", fillOpacity: 1 }).addTo(sketch);
   } else if (id === "diet") {
-    L.polyline([offsetMeters(lat, lng, 0, -45), offsetMeters(lat, lng, 0, 45)], { color: "#2e7d32", weight: 8, opacity: 0.7 }).addTo(sketch);
-    L.polyline([offsetMeters(lat, lng, -6, -45), offsetMeters(lat, lng, -6, 45)], { color: "#fff", weight: 2, dashArray: "6 8" }).addTo(sketch);
-    L.polyline([offsetMeters(lat, lng, 6, -45), offsetMeters(lat, lng, 6, 45)], { color: "#fff", weight: 2, dashArray: "6 8" }).addTo(sketch);
-  } else if (id === "left") {
-    L.polyline(
-      [offsetMeters(lat, lng, -20, 4), offsetMeters(lat, lng, 0, 4), offsetMeters(lat, lng, 4, 20)],
-      { color: "#c0392b", weight: 4 }
+    L.polygon(
+      [pt(lat, lng, -3.2, -48), pt(lat, lng, 3.2, -48), pt(lat, lng, 3.2, 48), pt(lat, lng, -3.2, 48)],
+      { color: "#2e7d32", weight: 1, fillColor: "#5aa35e", fillOpacity: 0.55 }
     ).addTo(sketch);
-    L.circleMarker(offsetMeters(lat, lng, 4, 20), { radius: 5, color: "#c0392b", fillColor: "#c0392b", fillOpacity: 1 }).addTo(sketch);
+    L.polyline([pt(lat, lng, -7, -48), pt(lat, lng, -7, 48)], { color: "#f4f1ea", weight: 2, dashArray: "8 10" }).addTo(sketch);
+    L.polyline([pt(lat, lng, 7, -48), pt(lat, lng, 7, 48)], { color: "#f4f1ea", weight: 2, dashArray: "8 10" }).addTo(sketch);
+  } else if (id === "left") {
+    L.polyline([pt(lat, lng, -22, 3.5), pt(lat, lng, 0, 3.5), pt(lat, lng, 3.5, 22)], { color: "#e74c3c", weight: 5 }).addTo(sketch);
+    L.circleMarker(pt(lat, lng, 3.5, 22), { radius: 5, color: "#e74c3c", fillColor: "#e74c3c", fillOpacity: 1 }).addTo(sketch);
+    L.polyline([pt(lat, lng, -8, 3.5), pt(lat, lng, -4, 6.5), pt(lat, lng, -8, 3.5), pt(lat, lng, -4, 0.5)], { color: "#e74c3c", weight: 3 }).addTo(sketch);
   }
 }
 
@@ -181,7 +249,7 @@ function renderPanel() {
         <p><strong>Fit:</strong> ${fit}</p>
         <p><strong>Injuries (research range):</strong> ${holding.injury}</p>
         <p><strong>When it fails:</strong> ${holding.whenFails}</p>
-        <p class="lede">You placed this sketch. Click the map again to move it onto the painted intersection.</p>
+        <p class="lede">You placed this sketch. Drag again to move it onto the painted intersection.</p>
       </div>`;
   }
 
@@ -221,8 +289,8 @@ mapEl.addEventListener("dragover", (e) => {
 });
 mapEl.addEventListener("drop", (e) => {
   e.preventDefault();
-  const pt = L.DomEvent.getMousePosition(e, mapEl);
-  const ll = map.containerPointToLatLng([pt.x, pt.y]);
+  const mouse = L.DomEvent.getMousePosition(e, mapEl);
+  const ll = map.containerPointToLatLng([mouse.x, mouse.y]);
   placeTreatment(ll.lat, ll.lng);
   document.body.classList.remove("holding");
 });
