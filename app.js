@@ -56,9 +56,11 @@ L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
 }).addTo(map);
 
 const panel = document.getElementById("detail");
-let selected = null;
-let activeTreat = null;
 const sketch = L.layerGroup().addTo(map);
+
+let intersections = [];
+let selected = null;
+let holding = null;
 
 function offsetMeters(lat, lng, eastM, northM) {
   const dLat = northM / 111320;
@@ -70,33 +72,21 @@ function clearSketch() {
   sketch.clearLayers();
 }
 
-function drawSketch(ix, id) {
+function drawSketch(lat, lng, id) {
   clearSketch();
-  const { lat, lng } = ix;
   const ink = "#1d4e89";
   const paint = { color: ink, weight: 3, fillColor: "#4aa3df", fillOpacity: 0.35 };
-  map.setView([lat, lng], 18);
 
   if (id === "roundabout") {
     L.circle([lat, lng], { ...paint, radius: 18 }).addTo(sketch);
     L.circle([lat, lng], { color: "#2e7d32", weight: 2, fillColor: "#7dba7f", fillOpacity: 0.5, radius: 6 }).addTo(sketch);
     L.circle([lat, lng], { color: ink, weight: 1, fill: false, radius: 26, dashArray: "4 4" }).addTo(sketch);
   } else if (id === "daylight") {
-    [
-      [10, 10],
-      [10, -10],
-      [-10, 10],
-      [-10, -10],
-    ].forEach(([e, n]) => {
+    [[10, 10], [10, -10], [-10, 10], [-10, -10]].forEach(([e, n]) => {
       L.circle(offsetMeters(lat, lng, e, n), { ...paint, radius: 5, fillColor: "#f4d35e" }).addTo(sketch);
     });
   } else if (id === "curb") {
-    [
-      [8, 8],
-      [8, -8],
-      [-8, 8],
-      [-8, -8],
-    ].forEach(([e, n]) => {
+    [[8, 8], [8, -8], [-8, 8], [-8, -8]].forEach(([e, n]) => {
       L.circle(offsetMeters(lat, lng, e, n), { ...paint, radius: 7 }).addTo(sketch);
     });
   } else if (id === "lpi") {
@@ -120,68 +110,132 @@ function drawSketch(ix, id) {
   }
 }
 
+function nearestIntersection(lat, lng) {
+  let best = null;
+  let bestD = Infinity;
+  intersections.forEach((ix) => {
+    const dLat = (ix.lat - lat) * 111320;
+    const dLng = (ix.lng - lng) * 111320 * Math.cos((lat * Math.PI) / 180);
+    const d = Math.hypot(dLat, dLng);
+    if (d < bestD) {
+      bestD = d;
+      best = ix;
+    }
+  });
+  return { ix: best, meters: bestD };
+}
+
 function tone(score100) {
   if (score100 >= 70) return "high";
   if (score100 >= 40) return "mid";
   return "ok";
 }
 
-function render(ix) {
-  selected = ix;
-  activeTreat = null;
-  clearSketch();
-  const t = tone(ix.score100);
+function treatmentCopy(tr, ix) {
+  let fit = tr.fit;
+  if (tr.id === "roundabout") {
+    fit = "Likely tight on a typical Chicago parcel — treat fit as \u201cmaybe\u201d until someone measures the right-of-way.";
+  }
+  if (ix && tr.id === "lpi" && !/SIGNAL/i.test(ix.control)) {
+    fit = "This corner is not coded as a signal in the crash file — LPI only applies if there is a signal.";
+  }
+  return fit;
+}
+
+function placeTreatment(lat, lng) {
+  if (!holding) return;
+  const found = nearestIntersection(lat, lng);
+  if (found.ix && found.meters < 120) selected = found.ix;
+  drawSketch(lat, lng, holding.id);
+  renderPanel();
+}
+
+function renderPanel() {
+  const holdNote = holding
+    ? `<p class="lede pickup">Holding <strong>${holding.name}</strong>. Drag it onto the map, or click the map where the streets actually meet.</p>`
+    : `<p class="lede">Click a change, then drag it onto the corner you mean — the colored dot is only an approximate pin.</p>`;
+
+  let stats = "";
+  if (selected) {
+    const t = tone(selected.score100);
+    stats = `
+      <h1>${selected.name}</h1>
+      <p class="lede">${selected.control} · ${selected.crashes} reported intersection crashes since 2023 · trend ${selected.trend}</p>
+      <div class="score-row">
+        <div class="stat ${t}"><b>${selected.score100}</b><span>Safety score</span></div>
+        <div class="stat"><b>${selected.injuryCrashes}</b><span>Injury crashes</span></div>
+        <div class="stat"><b>${selected.seriousCrashes + selected.fatalCrashes}</b><span>Serious or fatal</span></div>
+      </div>
+    `;
+  } else {
+    stats = `<h1>Chicago Corners</h1><p class="lede">Click a problematic intersection to read its score. Changes live in the list below until you drop them on the map.</p>`;
+  }
+
+  let result = `<div id="result" class="result empty">No change placed yet.</div>`;
+  if (holding && sketch.getLayers().length) {
+    const fit = treatmentCopy(holding, selected);
+    result = `
+      <div id="result" class="result">
+        <h3>${holding.name}</h3>
+        <p><strong>Cost band:</strong> ${holding.cost}</p>
+        <p><strong>Fit:</strong> ${fit}</p>
+        <p><strong>Injuries (research range):</strong> ${holding.injury}</p>
+        <p><strong>When it fails:</strong> ${holding.whenFails}</p>
+        <p class="lede">You placed this sketch. Click the map again to move it onto the painted intersection.</p>
+      </div>`;
+  }
+
   panel.innerHTML = `
-    <h1>${ix.name}</h1>
-    <p class="lede">${ix.control} · ${ix.crashes} reported intersection crashes since 2023 · trend ${ix.trend}</p>
-    <div class="score-row">
-      <div class="stat ${t}"><b>${ix.score100}</b><span>Safety score</span></div>
-      <div class="stat"><b>${ix.injuryCrashes}</b><span>Injury crashes</span></div>
-      <div class="stat"><b>${ix.seriousCrashes + ix.fatalCrashes}</b><span>Serious or fatal</span></div>
-    </div>
-    <p class="lede">Score weights how many crashes happened and how severe they were. It does not describe who was involved.</p>
-    <h2>Try a change</h2>
+    ${stats}
+    ${holdNote}
+    <h2>Changes</h2>
     <div class="treatments">
       ${TREATMENTS.map(
-        (tr) => `<button class="treat" data-id="${tr.id}"><strong>${tr.name}</strong><em>${tr.cost}</em></button>`
+        (tr) => `<button class="treat${holding && holding.id === tr.id ? " active" : ""}" draggable="true" data-id="${tr.id}"><strong>${tr.name}</strong><em>${tr.cost} · drag onto map</em></button>`
       ).join("")}
     </div>
-    <div id="result" class="result empty">Pick a treatment to see a sketch of cost, fit, and what research usually finds.</div>
-    <p class="disclaimer">Sketch for public discussion, not an engineering study. Crash data: City of Chicago open portal, intersection-related records 2023–present. Safety ranges come from published crash-modification research and will not match any one corner exactly.</p>
+    ${result}
+    <p class="disclaimer">Sketch for public discussion, not an engineering study. Crash data: City of Chicago open portal, intersection-related records 2023–present.</p>
   `;
+
   panel.querySelectorAll(".treat").forEach((btn) => {
-    btn.onclick = () => showTreat(btn.dataset.id);
+    const tr = TREATMENTS.find((x) => x.id === btn.dataset.id);
+    btn.onclick = () => {
+      holding = tr;
+      document.body.classList.add("holding");
+      renderPanel();
+    };
+    btn.addEventListener("dragstart", (e) => {
+      holding = tr;
+      e.dataTransfer.setData("text/plain", tr.id);
+      e.dataTransfer.effectAllowed = "copy";
+      document.body.classList.add("holding");
+    });
   });
 }
 
-function showTreat(id) {
-  const tr = TREATMENTS.find((x) => x.id === id);
-  activeTreat = id;
-  panel.querySelectorAll(".treat").forEach((b) => b.classList.toggle("active", b.dataset.id === id));
-  const box = document.getElementById("result");
-  let fit = tr.fit;
-  if (tr.id === "roundabout") {
-    fit = "Likely tight on a typical Chicago parcel — treat fit as “maybe” until someone measures the right-of-way.";
-  }
-  if (tr.id === "lpi" && !/SIGNAL/i.test(selected.control)) {
-    fit = "This corner is not coded as a signal in the crash file — LPI only applies if there is a signal.";
-  }
-  box.className = "result";
-  box.innerHTML = `
-    <h3>${tr.name}</h3>
-    <p><strong>Cost band:</strong> ${tr.cost}</p>
-    <p><strong>Fit:</strong> ${fit}</p>
-    <p><strong>Injuries (research range):</strong> ${tr.injury}</p>
-    <p><strong>When it fails:</strong> ${tr.whenFails}</p>
-    <p class="lede">Blue / yellow shapes on the map are a sketch of the idea, not a surveyed design.</p>
-  `;
-  drawSketch(selected, tr.id);
-}
+const mapEl = document.getElementById("map");
+mapEl.addEventListener("dragover", (e) => {
+  e.preventDefault();
+  e.dataTransfer.dropEffect = "copy";
+});
+mapEl.addEventListener("drop", (e) => {
+  e.preventDefault();
+  const pt = L.DomEvent.getMousePosition(e, mapEl);
+  const ll = map.containerPointToLatLng([pt.x, pt.y]);
+  placeTreatment(ll.lat, ll.lng);
+  document.body.classList.remove("holding");
+});
+
+map.on("click", (e) => {
+  if (holding) placeTreatment(e.latlng.lat, e.latlng.lng);
+});
 
 fetch("intersections.json")
   .then((r) => r.json())
   .then((data) => {
-    data.intersections.forEach((ix) => {
+    intersections = data.intersections;
+    intersections.forEach((ix) => {
       const color = ix.score100 >= 70 ? "#e24b4b" : ix.score100 >= 40 ? "#e2a54b" : "#3d9b6e";
       const marker = L.circleMarker([ix.lat, ix.lng], {
         radius: 5 + ix.score100 / 25,
@@ -191,13 +245,16 @@ fetch("intersections.json")
         fillOpacity: 0.75,
       }).addTo(map);
       marker.bindTooltip(`${ix.name} · ${ix.score100}`);
-      marker.on("click", () => {
-        map.panTo([ix.lat, ix.lng]);
-        render(ix);
+      marker.on("click", (ev) => {
+        L.DomEvent.stopPropagation(ev);
+        selected = ix;
+        map.setView([ix.lat, ix.lng], Math.max(map.getZoom(), 16));
+        if (!holding) clearSketch();
+        renderPanel();
       });
     });
-    render(data.intersections[0]);
+    renderPanel();
   })
   .catch((err) => {
-    panel.innerHTML = `<p>Could not load intersections.json (${err}). Open this folder with a local web server.</p>`;
+    panel.innerHTML = `<p>Could not load intersections.json (${err}).</p>`;
   });
