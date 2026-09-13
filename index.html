@@ -9,7 +9,13 @@
 </head>
 <body>
   <div class="app">
-    <div id="map"></div>
+    <div class="map-wrap">
+      <div id="map"></div>
+      <div class="basemap-toggle" id="basemapToggle">
+        <button type="button" data-base="sat" class="on">Satellite</button>
+        <button type="button" data-base="streets">Streets</button>
+      </div>
+    </div>
     <aside class="panel" id="detail">
       <h1>Chicago Corners</h1>
       <p class="lede">Click an intersection. Score is how many crashes and how serious — not who was involved.</p>
