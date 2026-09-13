@@ -44,9 +44,11 @@ h1 { font-size: 1.25rem; margin: 0 0 6px; }
   color: var(--ink);
   border-radius: 8px;
   padding: 10px 12px;
-  cursor: pointer;
+  cursor: grab;
 }
 .treat:hover, .treat.active { border-color: var(--accent); }
+body.holding, body.holding #map { cursor: copy; }
+.pickup { color: #f4d35e; }
 .treat strong { display: block; }
 .treat em { font-style: normal; color: var(--muted); font-size: 0.82rem; }
 
