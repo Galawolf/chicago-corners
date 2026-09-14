@@ -36,19 +36,18 @@ function offsetMeters(lat, lng, eastM, northM) {
 function applyCompare() {
   const slider = document.getElementById("compareSlider");
   const line = document.getElementById("compareLine");
-  const pane = document.querySelector("#map .leaflet-overlay-pane");
   if (!slider || !place) return;
-  const pct = Number(slider.value);
-  if (pane) pane.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
-  if (line) { line.hidden = false; line.style.left = `${pct}%`; }
+  const pct = Number(slider.value) / 100;
+  sketch.eachLayer((layer) => {
+    if (layer.setStyle) layer.setStyle({ opacity: Math.max(0.15, pct), fillOpacity: pct * 0.85 });
+  });
+  if (line) { line.hidden = pct >= 0.98 || pct <= 0.02; line.style.left = Number(slider.value) + "%"; }
 }
 function hideCompare() {
   const bar = document.getElementById("compareBar");
   const line = document.getElementById("compareLine");
-  const pane = document.querySelector("#map .leaflet-overlay-pane");
   if (bar) bar.hidden = true;
   if (line) line.hidden = true;
-  if (pane) pane.style.clipPath = "";
 }
 function clearSketch() { sketch.clearLayers(); }
 function pt(e, n) {
@@ -137,6 +136,8 @@ function placeTreatment(lat, lng) {
   const found = nearestIntersection(lat, lng);
   if (found.ix && found.meters < 120) selected = found.ix;
   place = { id: holding.id, lat, lng, heading: place ? place.heading : 0, scale: place ? place.scale : 1 };
+  if (map.getZoom() < 17) map.setView([lat, lng], 18);
+  else map.panTo([lat, lng]);
   drawSketch();
   renderPanel();
 }
@@ -150,20 +151,25 @@ map.on("mousemove", (e) => {
 map.on("mouseup", () => { if (dragMode) { dragMode = null; map.dragging.enable(); } });
 function renderPanel() {
   const holdNote = holding
-    ? `<p class="lede pickup">Holding <strong>${holding.name}</strong>. Drag it onto the map, or click the photo where the streets meet.</p>`
-    : `<p class="lede">Search a corner, click a change, drop it on the photo, then move / rotate / resize.</p>`;
+    ? `<p class="lede pickup">Holding <strong>${holding.name}</strong>. Click the photo to move it, or use the blue handle.</p>`
+    : `<p class="lede">Click a corner (or search), then click a change. The sketch should appear on that corner.</p>`;
   let stats = selected
     ? `<h1>${selected.name}</h1><p class="lede">${selected.control} · ${selected.crashes} reported intersection crashes since 2023 · trend ${selected.trend}</p><div class="score-row"><div class="stat ${tone(selected.score100)}"><b>${selected.score100}</b><span>Safety score</span></div><div class="stat"><b>${selected.injuryCrashes}</b><span>Injury crashes</span></div><div class="stat"><b>${selected.seriousCrashes + selected.fatalCrashes}</b><span>Serious or fatal</span></div></div>`
-    : `<h1>Chicago Corners</h1><p class="lede">Search or click a problematic intersection. Then stamp a change on the satellite photo.</p>`;
+    : `<h1>Chicago Corners</h1><p class="lede">Search or click a problematic intersection first. Then stamp a change.</p>`;
   let result = `<div id="result" class="result empty">No change placed yet.</div>`;
   if (holding && place) {
     const fit = treatmentCopy(holding, selected);
-    result = `<div id="result" class="result"><h3>${holding.name}</h3><p><strong>Cost band:</strong> ${holding.cost}</p><p><strong>Fit:</strong> ${fit}</p><p><strong>Injuries (research range):</strong> ${holding.injury}</p><p><strong>When it fails:</strong> ${holding.whenFails}</p><p class="lede">Blue center = move. Gold = rotate. Green = resize. Bottom slider = before / after.</p><p><button type="button" class="mini" id="rotL">Rotate left</button><button type="button" class="mini" id="rotR">Rotate right</button><button type="button" class="mini" id="bigger">Bigger</button><button type="button" class="mini" id="smaller">Smaller</button></p></div>`;
+    result = `<div id="result" class="result"><h3>${holding.name}</h3><p><strong>Cost band:</strong> ${holding.cost}</p><p><strong>Fit:</strong> ${fit}</p><p><strong>Injuries (research range):</strong> ${holding.injury}</p><p><strong>When it fails:</strong> ${holding.whenFails}</p><p class="lede">Blue = move. Gold = rotate. Green = resize.</p><p><button type="button" class="mini" id="rotL">Rotate left</button><button type="button" class="mini" id="rotR">Rotate right</button><button type="button" class="mini" id="bigger">Bigger</button><button type="button" class="mini" id="smaller">Smaller</button></p></div>`;
   }
-  panel.innerHTML = `${stats}${holdNote}<h2>Changes</h2><div class="treatments">${TREATMENTS.map((tr) => `<button class="treat${holding && holding.id === tr.id ? " active" : ""}" draggable="true" data-id="${tr.id}"><strong>${tr.name}</strong><em>${tr.cost} · drag onto map</em></button>`).join("")}</div>${result}<p class="disclaimer">Sketch for public discussion, not an engineering study. Crash data: City of Chicago open portal, intersection-related records 2023–present.</p>`;
+  panel.innerHTML = `${stats}${holdNote}<h2>Changes</h2><div class="treatments">${TREATMENTS.map((tr) => `<button class="treat${holding && holding.id === tr.id ? " active" : ""}" draggable="true" data-id="${tr.id}"><strong>${tr.name}</strong><em>${tr.cost}</em></button>`).join("")}</div>${result}<p class="disclaimer">Sketch for public discussion, not an engineering study. Crash data: City of Chicago open portal, intersection-related records 2023–present.</p>`;
   panel.querySelectorAll(".treat").forEach((btn) => {
     const tr = TREATMENTS.find((x) => x.id === btn.dataset.id);
-    btn.onclick = () => { holding = tr; document.body.classList.add("holding"); renderPanel(); };
+    btn.onclick = () => {
+      holding = tr;
+      document.body.classList.add("holding");
+      if (selected) placeTreatment(selected.lat, selected.lng);
+      else renderPanel();
+    };
     btn.addEventListener("dragstart", (e) => { holding = tr; e.dataTransfer.setData("text/plain", tr.id); e.dataTransfer.effectAllowed = "copy"; document.body.classList.add("holding"); });
   });
   if (document.getElementById("rotL") && place) {
