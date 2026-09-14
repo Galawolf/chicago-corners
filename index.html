@@ -11,10 +11,20 @@
   <div class="app">
     <div class="map-wrap">
       <div id="map"></div>
+      <div class="search-box" id="searchBox">
+        <input id="searchInput" type="search" placeholder="Search a street or corner…" autocomplete="off" />
+        <div id="searchHits" class="search-hits" hidden></div>
+      </div>
       <div class="basemap-toggle" id="basemapToggle">
         <button type="button" data-base="sat" class="on">Satellite</button>
         <button type="button" data-base="streets">Streets</button>
       </div>
+      <div class="compare" id="compareBar" hidden>
+        <span>Before</span>
+        <input id="compareSlider" type="range" min="0" max="100" value="100" />
+        <span>After</span>
+      </div>
+      <div id="compareLine" class="compare-line" hidden></div>
     </div>
     <aside class="panel" id="detail">
       <h1>Chicago Corners</h1>

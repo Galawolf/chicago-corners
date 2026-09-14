@@ -37,6 +37,74 @@ html, body { margin: 0; height: 100%; font: 15px/1.45 "Source Sans 3", "Segoe UI
 }
 .basemap-toggle button.on { background: #243040; color: var(--ink); }
 
+.search-box {
+  position: absolute;
+  top: 12px;
+  left: 52px;
+  z-index: 500;
+  width: min(320px, calc(100% - 220px));
+}
+.search-box input {
+  width: 100%;
+  border: 1px solid var(--line);
+  background: #12181f;
+  color: var(--ink);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font: inherit;
+}
+.search-hits {
+  margin-top: 4px;
+  background: #12181f;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  max-height: 220px;
+  overflow: auto;
+}
+.search-hits button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  background: transparent;
+  color: var(--ink);
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  padding: 8px 10px;
+  cursor: pointer;
+  font: inherit;
+}
+.search-hits button:last-child { border-bottom: 0; }
+.search-hits button:hover { background: #243040; }
+.search-hits em { color: var(--muted); font-style: normal; font-size: 0.82rem; }
+
+.compare {
+  position: absolute;
+  left: 50%;
+  bottom: 18px;
+  transform: translateX(-50%);
+  z-index: 500;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #12181f;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 6px 10px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+.compare input { width: 140px; }
+.compare-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: #f4f1ea;
+  z-index: 450;
+  pointer-events: none;
+  box-shadow: 0 0 0 1px rgba(0,0,0,0.4);
+}
+
 .panel {
   border-left: 1px solid var(--line);
   background: var(--panel);
