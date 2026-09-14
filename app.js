@@ -33,13 +33,28 @@ function offsetMeters(lat, lng, eastM, northM) {
   const dLng = eastM / (111320 * Math.cos((lat * Math.PI) / 180));
   return [lat + dLat, lng + dLng];
 }
+function applyCompare() {
+  const slider = document.getElementById("compareSlider");
+  const line = document.getElementById("compareLine");
+  const pane = document.querySelector("#map .leaflet-overlay-pane");
+  if (!slider || !place) return;
+  const pct = Number(slider.value);
+  if (pane) pane.style.clipPath = `inset(0 ${100 - pct}% 0 0)`;
+  if (line) { line.hidden = false; line.style.left = `${pct}%`; }
+}
+function hideCompare() {
+  const bar = document.getElementById("compareBar");
+  const line = document.getElementById("compareLine");
+  const pane = document.querySelector("#map .leaflet-overlay-pane");
+  if (bar) bar.hidden = true;
+  if (line) line.hidden = true;
+  if (pane) pane.style.clipPath = "";
+}
 function clearSketch() { sketch.clearLayers(); }
 function pt(e, n) {
   const s = place ? place.scale : 1;
-  const rad = ((place && place.heading) || 0) * Math.PI / 180;
-  const re = (e * Math.cos(rad) - n * Math.sin(rad)) * s;
-  const rn = (e * Math.sin(rad) + n * Math.cos(rad)) * s;
-  return offsetMeters(place.lat, place.lng, re, rn);
+  const rad = (((place && place.heading) || 0) * Math.PI) / 180;
+  return offsetMeters(place.lat, place.lng, (e * Math.cos(rad) - n * Math.sin(rad)) * s, (e * Math.sin(rad) + n * Math.cos(rad)) * s);
 }
 function zebra(alongE, alongN, acrossE, acrossN) {
   for (let i = -4; i <= 4; i += 1) {
@@ -56,12 +71,12 @@ function bulbOut(signE, signN) {
   ], { color: "#3a3530", weight: 2, fillColor: "#cfc6b4", fillOpacity: 0.88 }).addTo(sketch);
 }
 function addHandle(e, n, mode, color) {
-  const marker = L.circleMarker(pt(e, n), { radius: 8, color: "#fff", weight: 2, fillColor: color, fillOpacity: 1 }).addTo(sketch);
+  const marker = L.circleMarker(pt(e, n), { radius: mode === "move" ? 9 : 8, color: "#fff", weight: 2, fillColor: color, fillOpacity: 1 }).addTo(sketch);
   marker.on("mousedown", (ev) => { L.DomEvent.stop(ev); dragMode = mode; map.dragging.disable(); });
 }
 function drawSketch() {
   clearSketch();
-  if (!place) return;
+  if (!place) { hideCompare(); return; }
   const { lat, lng, id, scale } = place;
   if (id === "roundabout") {
     L.circle([lat, lng], { color: "#d8d2c6", weight: 10, fill: false, radius: 16 * scale }).addTo(sketch);
@@ -84,9 +99,11 @@ function drawSketch() {
     L.polyline([pt(-22, 3.5), pt(0, 3.5), pt(3.5, 22)], { color: "#e74c3c", weight: 5 }).addTo(sketch);
     L.circleMarker(pt(3.5, 22), { radius: 5, color: "#e74c3c", fillColor: "#e74c3c", fillOpacity: 1 }).addTo(sketch);
   }
-  L.circleMarker([lat, lng], { radius: 5, color: "#fff", weight: 2, fillColor: "#4aa3df", fillOpacity: 1 }).addTo(sketch);
+  addHandle(0, 0, "move", "#4aa3df");
   addHandle(0, 22, "rotate", "#e2a54b");
-  addHandle(18, 18, "scale", "#4aa3df");
+  addHandle(18, 18, "scale", "#7dba7f");
+  document.getElementById("compareBar").hidden = false;
+  applyCompare();
 }
 function nearestIntersection(lat, lng) {
   let best = null, bestD = Infinity;
@@ -133,13 +150,15 @@ map.on("mousemove", (e) => {
 map.on("mouseup", () => { if (dragMode) { dragMode = null; map.dragging.enable(); } });
 function renderPanel() {
   const holdNote = holding
-    ? `<p class="lede pickup">Holding <strong>${holding.name}</strong>. Drag it onto the map, or click the map where the streets actually meet.</p>`
-    : `<p class="lede">Click a change, then drop it on the photo. Rotate and resize so it matches the real streets.</p>`;
-  let stats = selected ? `<h1>${selected.name}</h1><p class="lede">${selected.control} · ${selected.crashes} reported intersection crashes since 2023 · trend ${selected.trend}</p><div class="score-row"><div class="stat ${tone(selected.score100)}"><b>${selected.score100}</b><span>Safety score</span></div><div class="stat"><b>${selected.injuryCrashes}</b><span>Injury crashes</span></div><div class="stat"><b>${selected.seriousCrashes + selected.fatalCrashes}</b><span>Serious or fatal</span></div></div>` : `<h1>Chicago Corners</h1><p class="lede">Click a problematic intersection to read its score. Then stamp a change on the satellite photo.</p>`;
+    ? `<p class="lede pickup">Holding <strong>${holding.name}</strong>. Drag it onto the map, or click the photo where the streets meet.</p>`
+    : `<p class="lede">Search a corner, click a change, drop it on the photo, then move / rotate / resize.</p>`;
+  let stats = selected
+    ? `<h1>${selected.name}</h1><p class="lede">${selected.control} · ${selected.crashes} reported intersection crashes since 2023 · trend ${selected.trend}</p><div class="score-row"><div class="stat ${tone(selected.score100)}"><b>${selected.score100}</b><span>Safety score</span></div><div class="stat"><b>${selected.injuryCrashes}</b><span>Injury crashes</span></div><div class="stat"><b>${selected.seriousCrashes + selected.fatalCrashes}</b><span>Serious or fatal</span></div></div>`
+    : `<h1>Chicago Corners</h1><p class="lede">Search or click a problematic intersection. Then stamp a change on the satellite photo.</p>`;
   let result = `<div id="result" class="result empty">No change placed yet.</div>`;
-  if (holding && sketch.getLayers().length) {
+  if (holding && place) {
     const fit = treatmentCopy(holding, selected);
-    result = `<div id="result" class="result"><h3>${holding.name}</h3><p><strong>Cost band:</strong> ${holding.cost}</p><p><strong>Fit:</strong> ${fit}</p><p><strong>Injuries (research range):</strong> ${holding.injury}</p><p><strong>When it fails:</strong> ${holding.whenFails}</p><p class="lede">Gold handle = rotate. Blue handle = resize. On a trackpad, use the buttons.</p><p><button type="button" class="mini" id="rotL">Rotate left</button><button type="button" class="mini" id="rotR">Rotate right</button><button type="button" class="mini" id="bigger">Bigger</button><button type="button" class="mini" id="smaller">Smaller</button></p></div>`;
+    result = `<div id="result" class="result"><h3>${holding.name}</h3><p><strong>Cost band:</strong> ${holding.cost}</p><p><strong>Fit:</strong> ${fit}</p><p><strong>Injuries (research range):</strong> ${holding.injury}</p><p><strong>When it fails:</strong> ${holding.whenFails}</p><p class="lede">Blue center = move. Gold = rotate. Green = resize. Bottom slider = before / after.</p><p><button type="button" class="mini" id="rotL">Rotate left</button><button type="button" class="mini" id="rotR">Rotate right</button><button type="button" class="mini" id="bigger">Bigger</button><button type="button" class="mini" id="smaller">Smaller</button></p></div>`;
   }
   panel.innerHTML = `${stats}${holdNote}<h2>Changes</h2><div class="treatments">${TREATMENTS.map((tr) => `<button class="treat${holding && holding.id === tr.id ? " active" : ""}" draggable="true" data-id="${tr.id}"><strong>${tr.name}</strong><em>${tr.cost} · drag onto map</em></button>`).join("")}</div>${result}<p class="disclaimer">Sketch for public discussion, not an engineering study. Crash data: City of Chicago open portal, intersection-related records 2023–present.</p>`;
   panel.querySelectorAll(".treat").forEach((btn) => {
@@ -164,19 +183,51 @@ mapEl.addEventListener("drop", (e) => {
   document.body.classList.remove("holding");
 });
 map.on("click", (e) => { if (holding) placeTreatment(e.latlng.lat, e.latlng.lng); });
+document.getElementById("compareSlider").addEventListener("input", applyCompare);
+function selectCorner(ix) {
+  selected = ix;
+  map.setView([ix.lat, ix.lng], Math.max(map.getZoom(), 17));
+  if (!holding) { place = null; clearSketch(); hideCompare(); }
+  renderPanel();
+}
+function norm(s) { return (s || "").toLowerCase().replace(/[^a-z0-9& ]/g, " ").replace(/\s+/g, " ").trim(); }
+function searchCorners(q) {
+  const parts = norm(q).split(" ").filter(Boolean);
+  if (!parts.length) return [];
+  return intersections.map((ix) => {
+    const n = norm(ix.name);
+    return { ix, hits: parts.filter((p) => n.includes(p)).length };
+  }).filter((r) => r.hits === parts.length).sort((a, b) => b.ix.score100 - a.ix.score100).slice(0, 8).map((r) => r.ix);
+}
+const searchInput = document.getElementById("searchInput");
+const searchHits = document.getElementById("searchHits");
+searchInput.addEventListener("input", () => {
+  const hits = searchCorners(searchInput.value);
+  if (!searchInput.value.trim() || !hits.length) { searchHits.hidden = true; searchHits.innerHTML = ""; return; }
+  searchHits.hidden = false;
+  searchHits.innerHTML = hits.map((ix) => `<button type="button" data-id="${ix.id}"><strong>${ix.name}</strong><br><em>score ${ix.score100} · ${ix.crashes} crashes</em></button>`).join("");
+  searchHits.querySelectorAll("button").forEach((btn) => {
+    btn.onclick = () => {
+      const ix = intersections.find((x) => x.id === btn.dataset.id);
+      searchHits.hidden = true;
+      searchInput.value = ix.name;
+      selectCorner(ix);
+    };
+  });
+});
+searchInput.addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    const hits = searchCorners(searchInput.value);
+    if (hits[0]) { searchHits.hidden = true; searchInput.value = hits[0].name; selectCorner(hits[0]); }
+  }
+});
 fetch("intersections.json").then((r) => r.json()).then((data) => {
   intersections = data.intersections;
   intersections.forEach((ix) => {
     const color = ix.score100 >= 70 ? "#e24b4b" : ix.score100 >= 40 ? "#e2a54b" : "#3d9b6e";
-    const marker = L.circleMarker([ix.lat, ix.lng], { radius: 5 + ix.score100 / 25, color, weight: 1, fillColor: color, fillOpacity: 0.75 }).addTo(map);
+    const marker = L.circleMarker([ix.lat, ix.lng], { radius: 5 + ix.score100 / 25, color, weight: 1, fillColor: color, fillOpacity: 0.75, pane: "markerPane" }).addTo(map);
     marker.bindTooltip(`${ix.name} · ${ix.score100}`);
-    marker.on("click", (ev) => {
-      L.DomEvent.stopPropagation(ev);
-      selected = ix;
-      map.setView([ix.lat, ix.lng], Math.max(map.getZoom(), 16));
-      if (!holding) { place = null; clearSketch(); }
-      renderPanel();
-    });
+    marker.on("click", (ev) => { L.DomEvent.stopPropagation(ev); selectCorner(ix); });
   });
   renderPanel();
 }).catch((err) => { panel.innerHTML = `<p>Could not load intersections.json (${err}).</p>`; });
