@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chicago Corners — game</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <div class="map-wrap">
+      <div id="map"></div>
+      <div class="basemap-toggle" id="basemapToggle">
+        <button type="button" data-base="sat" class="on">Satellite</button>
+        <button type="button" data-base="streets">Streets</button>
+      </div>
+      <div class="compare" id="compareBar" hidden>
+        <span>Before</span>
+        <input id="compareSlider" type="range" min="0" max="100" value="100" />
+        <span>After</span>
+      </div>
+      <div id="compareLine" class="compare-line" hidden></div>
+    </div>
+    <aside class="panel" id="detail">
+      <h1>Game mode</h1>
+      <p class="lede">Pick a budget. You get a real high-score corner.</p>
+    </aside>
+  </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>window.CC_MODE = "game";</script>
+  <script src="app.js"></script>
+</body>
+</html>

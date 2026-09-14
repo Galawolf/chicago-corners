@@ -3,35 +3,37 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Chicago Corners — civic sketch</title>
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <title>Chicago Corners</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
-<body>
-  <div class="app">
-    <div class="map-wrap">
-      <div id="map"></div>
-      <div class="search-box" id="searchBox">
-        <input id="searchInput" type="search" placeholder="Search a street or corner…" autocomplete="off" />
-        <div id="searchHits" class="search-hits" hidden></div>
-      </div>
-      <div class="basemap-toggle" id="basemapToggle">
-        <button type="button" data-base="sat" class="on">Satellite</button>
-        <button type="button" data-base="streets">Streets</button>
-      </div>
-      <div class="compare" id="compareBar" hidden>
-        <span>Before</span>
-        <input id="compareSlider" type="range" min="0" max="100" value="100" />
-        <span>After</span>
-      </div>
-      <div id="compareLine" class="compare-line" hidden></div>
+<body class="splash">
+  <header class="splash-bar">
+    <p>Chicago Corners</p>
+    <p class="lede">Civic sketch · not an engineering study</p>
+  </header>
+  <main class="splash-main">
+    <p class="kicker">Open crash data · Chicago</p>
+    <h1>See a troubled corner.<em> Sketch what could change.</em></h1>
+    <p class="lede splash-copy">Scores come from how many intersection crashes happened, and how serious they were — never who was involved. Drop a change onto the satellite photo the way a neighbor would explain it at a meeting.</p>
+    <div class="doors">
+      <a class="door" href="map.html">
+        <span class="kicker">Civic map</span>
+        <strong>Find a corner</strong>
+        <span>Search a street, read the score, stamp a treatment, and slide before / after on the real photo.</span>
+        <em>Open the map</em>
+      </a>
+      <a class="door alt" href="play.html">
+        <span class="kicker">Game mode</span>
+        <strong>Spend a budget</strong>
+        <span>One real high-score intersection. A tight budget. Place up to three stamps. The crash numbers stay on screen.</span>
+        <em>Play a challenge</em>
+      </a>
     </div>
-    <aside class="panel" id="detail">
-      <h1>Chicago Corners</h1>
-      <p class="lede">Click an intersection. Score is how many crashes and how serious — not who was involved.</p>
-    </aside>
-  </div>
-  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-  <script src="app.js"></script>
+    <dl class="splash-stats">
+      <div><dt>Corners</dt><dd>250</dd></div>
+      <div><dt>Window</dt><dd>2023–now</dd></div>
+      <div><dt>Source</dt><dd>City open data</dd></div>
+    </dl>
+  </main>
 </body>
 </html>

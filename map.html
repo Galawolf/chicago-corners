@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Chicago Corners — civic map</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app">
+    <div class="map-wrap">
+      <div id="map"></div>
+      <div class="search-box" id="searchBox">
+        <input id="searchInput" type="search" placeholder="Search a street or corner…" autocomplete="off" />
+        <div id="searchHits" class="search-hits" hidden></div>
+      </div>
+      <div class="basemap-toggle" id="basemapToggle">
+        <button type="button" data-base="sat" class="on">Satellite</button>
+        <button type="button" data-base="streets">Streets</button>
+      </div>
+      <div class="compare" id="compareBar" hidden>
+        <span>Before</span>
+        <input id="compareSlider" type="range" min="0" max="100" value="100" />
+        <span>After</span>
+      </div>
+      <div id="compareLine" class="compare-line" hidden></div>
+    </div>
+    <aside class="panel" id="detail">
+      <h1>Chicago Corners</h1>
+      <p class="lede">Click an intersection. Score is how many crashes and how serious — not who was involved.</p>
+    </aside>
+  </div>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <script>window.CC_MODE = "civic";</script>
+  <script src="app.js"></script>
+</body>
+</html>
